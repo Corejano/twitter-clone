@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-screen border-r border-twitter-gray px-4 sticky top-0">
+  <div class="flex flex-col h-screen border-r border-twitter-gray text-black px-4 sticky top-0">
     <div class="flex flex-col space-y-2 mt-2">
       <router-link to="/home" class="flex items-center p-3 rounded-full hover:bg-twitter-light-gray transition-colors">
         <svg class="w-8 h-8 text-twitter-blue" fill="currentColor" viewBox="0 0 24 24">

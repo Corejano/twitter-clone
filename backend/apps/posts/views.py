@@ -35,7 +35,7 @@ class PostViewSet(viewsets.ModelViewSet):
         return PostSerializer
 
     def get_permissions(self):
-        if self.action == 'retrieve':
+        if self.action in ['retrieve', 'likes']:
             return [AllowAny()]
         elif self.action in ['update', 'partial_update', 'destroy']:
             return [IsAuthenticated(), IsAuthorOrReadOnly()]

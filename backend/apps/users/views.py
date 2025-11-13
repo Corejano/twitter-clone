@@ -79,7 +79,7 @@ class UserViewSet(viewsets.ModelViewSet):
         return UserSerializer
 
     def get_permissions(self):
-        if self.action in ['retrieve', 'list', 'search']:
+        if self.action in ['retrieve', 'list', 'search', 'posts', 'likes', 'followers', 'following']:
             return [AllowAny()]
         elif self.action in ['update', 'partial_update']:
             return [IsAuthenticated(), IsOwnerOrReadOnly()]
