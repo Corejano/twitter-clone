@@ -107,7 +107,8 @@ class LoginSerializer(serializers.Serializer):
             user = User.objects.filter(email=username).first()
 
         if user:
-            user = authenticate(username=user.username, password=password)
+            request = self.context.get('request')
+            user = authenticate(request=request, username=user.username, password=password)
 
         if not user:
             raise serializers.ValidationError('Invalid username or password.')
