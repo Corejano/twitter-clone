@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import PageNumberPagination
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
 
 from apps.posts.models import Post, Like
 from apps.posts.serializers import (
@@ -66,6 +68,7 @@ class PostViewSet(viewsets.ModelViewSet):
         )
         return Response(serializer.data)
 
+    @method_decorator(ratelimit(key='user', rate='10/m', method='POST'))
     def create(self, request):
         serializer = PostCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -97,6 +100,7 @@ class PostViewSet(viewsets.ModelViewSet):
         PostService.delete_post(post)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @method_decorator(ratelimit(key='user', rate='30/m', method=['POST', 'DELETE']))
     @action(detail=True, methods=['post', 'delete'])
     def like(self, request, pk=None):
         post = PostService.get_post_by_id(pk)
