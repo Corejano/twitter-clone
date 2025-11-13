@@ -16,6 +16,8 @@ from apps.users.serializers import (
 )
 from apps.users.services import UserService, FollowService
 from apps.users.permissions import IsOwnerOrReadOnly
+from apps.posts.services import PostService, LikeService
+from apps.posts.serializers import PostListSerializer
 
 
 class AuthViewSet(viewsets.GenericViewSet):
@@ -174,6 +176,30 @@ class UserViewSet(viewsets.ModelViewSet):
 
         serializer = UserListSerializer(
             users,
+            many=True,
+            context={'request': request}
+        )
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def posts(self, request, username=None):
+        user = UserService.get_user_by_username(username)
+        posts = PostService.get_user_posts(user)
+
+        serializer = PostListSerializer(
+            posts,
+            many=True,
+            context={'request': request}
+        )
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def likes(self, request, username=None):
+        user = UserService.get_user_by_username(username)
+        posts = LikeService.get_user_liked_posts(user)
+
+        serializer = PostListSerializer(
+            posts,
             many=True,
             context={'request': request}
         )
