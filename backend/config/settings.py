@@ -209,7 +209,7 @@ AUTHENTICATION_BACKENDS = [
 
 # Axes settings
 AXES_FAILURE_LIMIT = 5  # Number of failed login attempts before lockout
-AXES_COOLOFF_TIME = 1  # Cooloff period in hours
+AXES_COOLOFF_TIME = 3  # Cooloff period in hours
 AXES_LOCK_OUT_AT_FAILURE = True  # Lock out after failure limit
 AXES_RESET_ON_SUCCESS = True  # Reset attempts counter on successful login
 AXES_LOCKOUT_TEMPLATE = None  # Use default lockout response
