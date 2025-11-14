@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db.models import Q
+from django_ratelimit.decorators import ratelimit
+from django.utils.decorators import method_decorator
 
 from apps.users.models import User, Follow
 from apps.users.serializers import (
@@ -16,12 +18,15 @@ from apps.users.serializers import (
 )
 from apps.users.services import UserService, FollowService
 from apps.users.permissions import IsOwnerOrReadOnly
+from apps.posts.services import PostService, LikeService
+from apps.posts.serializers import PostListSerializer
 
 
 class AuthViewSet(viewsets.GenericViewSet):
     permission_classes = [AllowAny]
     serializer_class = UserRegistrationSerializer
 
+    @method_decorator(ratelimit(key='ip', rate='5/h', method='POST'))
     @action(detail=False, methods=['post'])
     def register(self, request):
         serializer = UserRegistrationSerializer(data=request.data)
@@ -37,9 +42,10 @@ class AuthViewSet(viewsets.GenericViewSet):
             }
         }, status=status.HTTP_201_CREATED)
 
+    @method_decorator(ratelimit(key='ip', rate='10/h', method='POST'))
     @action(detail=False, methods=['post'])
     def login(self, request):
-        serializer = LoginSerializer(data=request.data)
+        serializer = LoginSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
 
@@ -77,7 +83,7 @@ class UserViewSet(viewsets.ModelViewSet):
         return UserSerializer
 
     def get_permissions(self):
-        if self.action in ['retrieve', 'list', 'search']:
+        if self.action in ['retrieve', 'list', 'search', 'posts', 'likes', 'followers', 'following']:
             return [AllowAny()]
         elif self.action in ['update', 'partial_update']:
             return [IsAuthenticated(), IsOwnerOrReadOnly()]
@@ -121,6 +127,7 @@ class UserViewSet(viewsets.ModelViewSet):
         )
         return Response(serializer.data)
 
+    @method_decorator(ratelimit(key='user', rate='20/m', method='POST'))
     @action(detail=True, methods=['post'])
     def follow(self, request, username=None):
         user_to_follow = UserService.get_user_by_username(username)
@@ -148,6 +155,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+    @method_decorator(ratelimit(key='user', rate='20/m', method='DELETE'))
     @action(detail=True, methods=['delete'])
     def unfollow(self, request, username=None):
         user_to_unfollow = UserService.get_user_by_username(username)
@@ -162,6 +170,7 @@ class UserViewSet(viewsets.ModelViewSet):
             status=status.HTTP_400_BAD_REQUEST
         )
 
+    @method_decorator(ratelimit(key='ip', rate='30/m', method='GET'))
     @action(detail=False, methods=['get'])
     def search(self, request):
         query = request.query_params.get('q', '')
@@ -174,6 +183,30 @@ class UserViewSet(viewsets.ModelViewSet):
 
         serializer = UserListSerializer(
             users,
+            many=True,
+            context={'request': request}
+        )
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def posts(self, request, username=None):
+        user = UserService.get_user_by_username(username)
+        posts = PostService.get_user_posts(user)
+
+        serializer = PostListSerializer(
+            posts,
+            many=True,
+            context={'request': request}
+        )
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['get'])
+    def likes(self, request, username=None):
+        user = UserService.get_user_by_username(username)
+        posts = LikeService.get_user_liked_posts(user)
+
+        serializer = PostListSerializer(
+            posts,
             many=True,
             context={'request': request}
         )

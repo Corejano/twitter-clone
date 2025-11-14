@@ -28,8 +28,10 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'channels',
+    'axes',
 
     'apps.users',
+    'apps.posts',
 ]
 
 MIDDLEWARE = [
@@ -41,6 +43,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'axes.middleware.AxesMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -84,33 +87,33 @@ CHANNEL_LAYERS = {
     },
 }
 
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django_redis.cache.RedisCache',
-#         'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/1",
-#         'OPTIONS': {
-#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-#         }
-#     }
-# }
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/1",
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
 
-# AUTH_PASSWORD_VALIDATORS = [
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-#         'OPTIONS': {
-#             'min_length': 8,
-#         }
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-#     },
-#     {
-#         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-#     },
-# ]
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
+]
 
 LANGUAGE_CODE = 'en-us'
 
@@ -197,3 +200,37 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# Django Axes Configuration
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Axes settings
+AXES_FAILURE_LIMIT = 5  # Number of failed login attempts before lockout
+AXES_COOLOFF_TIME = 3  # Cooloff period in hours
+AXES_LOCK_OUT_AT_FAILURE = True  # Lock out after failure limit
+AXES_RESET_ON_SUCCESS = True  # Reset attempts counter on successful login
+AXES_LOCKOUT_TEMPLATE = None  # Use default lockout response
+AXES_LOCKOUT_PARAMETERS = [['username']]  # Lock based on username
+AXES_ENABLE_ACCESS_FAILURE_LOG = True  # Log access failures
+AXES_NEVER_LOCKOUT_WHITELIST = True  # Never lock whitelisted IPs
+AXES_NEVER_LOCKOUT_GET = True  # Never lock GET requests
+AXES_IPWARE_PROXY_COUNT = None  # Number of proxies in front of Django
+AXES_IPWARE_META_PRECEDENCE_ORDER = [
+    'HTTP_X_FORWARDED_FOR',
+    'X_FORWARDED_FOR',
+    'HTTP_CLIENT_IP',
+    'HTTP_X_REAL_IP',
+    'HTTP_X_FORWARDED',
+    'HTTP_X_CLUSTER_CLIENT_IP',
+    'HTTP_FORWARDED_FOR',
+    'HTTP_FORWARDED',
+    'REMOTE_ADDR',
+]
+
+# Django Ratelimit Configuration
+RATELIMIT_ENABLE = True  # Enable rate limiting
+RATELIMIT_USE_CACHE = 'default'  # Use default cache for rate limiting
+RATELIMIT_VIEW = 'django_ratelimit.views.ratelimited'  # Default view for rate limit exceeded

@@ -55,6 +55,12 @@ const router = createRouter({
       name: 'edit-profile',
       component: () => import('../views/EditProfileView.vue'),
       meta: { requiresAuth: true, layout: 'app' }
+    },
+    {
+      path: '/posts/:id',
+      name: 'post-detail',
+      component: () => import('../views/PostDetailView.vue'),
+      meta: { requiresAuth: true, layout: 'app' }
     }
   ]
 })

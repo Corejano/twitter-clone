@@ -1,5 +1,5 @@
 <template>
-  <div class="flex min-h-screen bg-white mx-auto" style="max-width: 1600px;">
+  <div class="flex min-h-screen bg-white mx-auto">
     <div class="w-20 xl:w-72 flex-shrink-0">
       <AppSidebar />
     </div>
@@ -18,7 +18,7 @@
               v-model="searchQuery"
               @input="handleSearch"
               placeholder="Search users..."
-              class="w-full px-4 py-2 bg-white rounded-full border border-twitter-gray focus:outline-none focus:border-twitter-blue"
+              class="w-full px-4 py-2 bg-white text-black rounded-full border border-twitter-gray focus:outline-none focus:border-twitter-blue"
             />
           </div>
           <div v-if="searchResults.length > 0" class="mt-3 space-y-2">

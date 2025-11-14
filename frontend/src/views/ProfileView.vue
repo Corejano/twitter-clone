@@ -2,7 +2,7 @@
   <div>
     <div class="border-b border-twitter-gray sticky top-0 bg-white bg-opacity-95 backdrop-blur z-10">
       <div class="flex items-center px-4 py-3">
-        <button @click="$router.back()" class="mr-8 p-2 rounded-full hover:bg-twitter-light-gray">
+        <button @click="$router.back()" class="mr-8 p-2 rounded-full text-black hover:bg-twitter-light-gray">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
           </svg>
@@ -108,8 +108,22 @@
       </div>
 
       <div class="min-h-screen">
-        <div class="py-12 text-center text-twitter-dark-gray">
+        <div v-if="loadingPosts" class="py-12 text-center">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-twitter-blue"></div>
+        </div>
+
+        <div v-else-if="currentPosts.length === 0" class="py-12 text-center text-twitter-dark-gray">
           <p>{{ activeTab === 'posts' ? 'No posts yet' : 'No likes yet' }}</p>
+        </div>
+
+        <div v-else>
+          <PostCard
+            v-for="post in currentPosts"
+            :key="post.id"
+            :post="post"
+            @deleted="handlePostDeleted"
+            @liked="handlePostLiked"
+          />
         </div>
       </div>
     </div>
@@ -121,18 +135,24 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useProfileStore } from '@/stores/profile'
+import { usePostsStore } from '@/stores/posts'
 import UserAvatar from '@/components/UserAvatar.vue'
 import BaseButton from '@/components/BaseButton.vue'
+import PostCard from '@/components/PostCard.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const profileStore = useProfileStore()
+const postsStore = usePostsStore()
 
 const profile = computed(() => profileStore.currentProfile)
 const loading = ref(false)
 const followLoading = ref(false)
+const loadingPosts = ref(false)
 const activeTab = ref('posts')
+const userPosts = ref([])
+const likedPosts = ref([])
 
 const tabs = [
   { label: 'Posts', value: 'posts' },
@@ -141,6 +161,10 @@ const tabs = [
 
 const isCurrentUser = computed(() => {
   return authStore.user?.username === profile.value?.username
+})
+
+const currentPosts = computed(() => {
+  return activeTab.value === 'posts' ? userPosts.value : likedPosts.value
 })
 
 const formatDate = (dateString) => {
@@ -187,13 +211,69 @@ const goToFollowing = () => {
   router.push(`/users/${profile.value.username}/following`)
 }
 
-watch(() => route.params.username, () => {
+const loadUserPosts = async () => {
+  if (!profile.value?.username) return
+
+  loadingPosts.value = true
+  try {
+    userPosts.value = await postsStore.fetchUserPosts(profile.value.username)
+  } catch (error) {
+    console.error('Failed to load user posts:', error)
+  } finally {
+    loadingPosts.value = false
+  }
+}
+
+const loadLikedPosts = async () => {
+  if (!profile.value?.username) return
+
+  loadingPosts.value = true
+  try {
+    likedPosts.value = await postsStore.fetchUserLikedPosts(profile.value.username)
+  } catch (error) {
+    console.error('Failed to load liked posts:', error)
+  } finally {
+    loadingPosts.value = false
+  }
+}
+
+const handlePostDeleted = (postId) => {
+  userPosts.value = userPosts.value.filter(post => post.id !== postId)
+  likedPosts.value = likedPosts.value.filter(post => post.id !== postId)
+}
+
+const handlePostLiked = ({ postId, isLiked }) => {
+  const updatePost = (post) => {
+    if (post.id === postId) {
+      post.is_liked = isLiked
+      post.likes_count = isLiked ? post.likes_count + 1 : post.likes_count - 1
+    }
+  }
+
+  userPosts.value.forEach(updatePost)
+  likedPosts.value.forEach(updatePost)
+}
+
+watch(() => route.params.username, async () => {
   if (route.params.username) {
-    loadProfile()
+    userPosts.value = []
+    likedPosts.value = []
+    activeTab.value = 'posts'
+    await loadProfile()
+    await loadUserPosts()
   }
 })
 
-onMounted(() => {
-  loadProfile()
+watch(activeTab, async (newTab, oldTab) => {
+  if (newTab === 'posts' && userPosts.value.length === 0) {
+    await loadUserPosts()
+  } else if (newTab === 'likes' && likedPosts.value.length === 0) {
+    await loadLikedPosts()
+  }
+})
+
+onMounted(async () => {
+  await loadProfile()
+  await loadUserPosts()
 })
 </script>
