@@ -101,6 +101,10 @@ const loadChatById = async (chatId) => {
 }
 
 const handleSelectChat = async (chat) => {
+  if (selectedChat.value?.id === chat.id) {
+    return
+  }
+
   chatLoading.value = true
 
   try {
