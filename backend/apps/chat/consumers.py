@@ -4,6 +4,7 @@ from channels.db import database_sync_to_async
 from django.core.exceptions import ValidationError
 from apps.chat.models import Chat, Message
 from apps.chat.services import ChatService, MessageService
+from channels.layers import get_channel_layer
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -67,6 +68,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
+                await self.send_notification_to_participants(chat, message_data)
+
             elif message_type == 'typing':
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -81,7 +84,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
             elif message_type == 'mark_read':
                 message_id = data.get('message_id')
                 if message_id:
-                    await self.mark_message_read(message_id)
+                    result = await self.mark_message_read(message_id)
+                    if result:
+                        message_obj, sender_id = result
+                        await self.channel_layer.group_send(
+                            self.room_group_name,
+                            {
+                                'type': 'message_read',
+                                'message_id': str(message_id)
+                            }
+                        )
+
+                        await self.channel_layer.group_send(
+                            f'user_{sender_id}_notifications',
+                            {
+                                'type': 'message_read_notification',
+                                'message_id': str(message_id)
+                            }
+                        )
 
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({
@@ -108,6 +128,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'username': event['username'],
                 'is_typing': event['is_typing']
             }))
+
+    async def message_read(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'message_read',
+            'message_id': event['message_id']
+        }))
 
     @database_sync_to_async
     def get_chat(self):
@@ -150,5 +176,62 @@ class ChatConsumer(AsyncWebsocketConsumer):
             message = Message.objects.get(id=message_id)
             if message.sender != self.user and not message.is_read:
                 MessageService.mark_message_as_read(message)
+                return (message, str(message.sender.id))
+            return None
         except Message.DoesNotExist:
-            pass
+            return None
+
+    async def send_notification_to_participants(self, chat, message_data):
+        participants = await self.get_chat_participants(chat)
+        channel_layer = get_channel_layer()
+
+        for participant in participants:
+            if str(participant.id) != str(self.user.id):
+                await channel_layer.group_send(
+                    f'user_{participant.id}_notifications',
+                    {
+                        'type': 'new_message_notification',
+                        'message': message_data
+                    }
+                )
+
+    @database_sync_to_async
+    def get_chat_participants(self, chat):
+        return list(chat.participants.all())
+
+
+class NotificationsConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.user = self.scope['user']
+
+        if not self.user.is_authenticated:
+            await self.close()
+            return
+
+        self.notifications_group_name = f'user_{self.user.id}_notifications'
+
+        await self.channel_layer.group_add(
+            self.notifications_group_name,
+            self.channel_name
+        )
+
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'notifications_group_name'):
+            await self.channel_layer.group_discard(
+                self.notifications_group_name,
+                self.channel_name
+            )
+
+    async def new_message_notification(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'new_message',
+            'message': event['message']
+        }))
+
+    async def message_read_notification(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'message_read',
+            'message_id': event['message_id']
+        }))

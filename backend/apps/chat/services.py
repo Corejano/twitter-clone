@@ -76,8 +76,14 @@ class MessageService:
     @staticmethod
     @transaction.atomic
     def mark_chat_messages_as_read(chat, user):
+        messages_to_update = list(Message.objects.filter(
+            chat=chat,
+            is_read=False
+        ).exclude(sender=user).values_list('id', 'sender_id'))
+
         updated_count = Message.objects.filter(
             chat=chat,
             is_read=False
         ).exclude(sender=user).update(is_read=True)
-        return updated_count
+
+        return updated_count, messages_to_update

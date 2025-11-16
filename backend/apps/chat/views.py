@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_ratelimit.decorators import ratelimit
 from django.utils.decorators import method_decorator
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 from apps.chat.models import Chat, Message
 from apps.chat.serializers import (
@@ -97,7 +99,28 @@ class ChatViewSet(viewsets.ModelViewSet):
         chat = self.get_object()
         self.check_object_permissions(request, chat)
 
-        updated_count = MessageService.mark_chat_messages_as_read(chat, request.user)
+        updated_count, messages_to_update = MessageService.mark_chat_messages_as_read(chat, request.user)
+
+        if updated_count > 0:
+            channel_layer = get_channel_layer()
+
+            for message_id, sender_id in messages_to_update:
+                async_to_sync(channel_layer.group_send)(
+                    f'chat_{chat.id}',
+                    {
+                        'type': 'message_read',
+                        'message_id': str(message_id)
+                    }
+                )
+
+                async_to_sync(channel_layer.group_send)(
+                    f'user_{sender_id}_notifications',
+                    {
+                        'type': 'message_read_notification',
+                        'message_id': str(message_id)
+                    }
+                )
+
         return Response(
             {'message': f'{updated_count} messages marked as read.'},
             status=status.HTTP_200_OK
