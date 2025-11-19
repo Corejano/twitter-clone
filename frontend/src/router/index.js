@@ -61,6 +61,12 @@ const router = createRouter({
       name: 'post-detail',
       component: () => import('../views/PostDetailView.vue'),
       meta: { requiresAuth: true, layout: 'app' }
+    },
+    {
+      path: '/messages',
+      name: 'messages',
+      component: () => import('../views/MessagesView.vue'),
+      meta: { requiresAuth: true, layout: 'app' }
     }
   ]
 })

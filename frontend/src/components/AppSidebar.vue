@@ -11,9 +11,17 @@
         v-for="item in menuItems"
         :key="item.path"
         :to="item.path"
-        class="flex items-center space-x-4 p-3 rounded-full hover:bg-twitter-light-gray transition-colors"
+        class="flex items-center space-x-4 p-3 rounded-full hover:bg-twitter-light-gray transition-colors relative"
       >
-        <component :is="item.icon" class="w-7 h-7" />
+        <div class="relative">
+          <component :is="item.icon" class="w-7 h-7" />
+          <div
+            v-if="item.badge && item.badge > 0"
+            class="absolute -top-1 -right-1 bg-twitter-blue text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1"
+          >
+            {{ item.badge > 9 ? '9+' : item.badge }}
+          </div>
+        </div>
         <span class="text-xl hidden xl:block">{{ item.label }}</span>
       </router-link>
 
@@ -45,13 +53,24 @@
 </template>
 
 <script setup>
-import { computed, h } from 'vue'
+import { computed, h, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useChatStore } from '@/stores/chat'
+import { useNotifications } from '@/composables/useNotifications'
 import UserAvatar from './UserAvatar.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const chatStore = useChatStore()
+const { connect, disconnect } = useNotifications()
+
+onMounted(() => {
+  if (authStore.isAuthenticated) {
+    chatStore.fetchChats()
+    connect()
+  }
+})
 
 const HomeIcon = (props) => h('svg', { ...props, fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' })
@@ -61,6 +80,10 @@ const SearchIcon = (props) => h('svg', { ...props, fill: 'none', stroke: 'curren
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' })
 )
 
+const MessagesIcon = (props) => h('svg', { ...props, fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' })
+)
+
 const UserIcon = (props) => h('svg', { ...props, fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' })
 )
@@ -68,6 +91,7 @@ const UserIcon = (props) => h('svg', { ...props, fill: 'none', stroke: 'currentC
 const menuItems = computed(() => [
   { path: '/home', label: 'Home', icon: HomeIcon },
   { path: '/search', label: 'Explore', icon: SearchIcon },
+  { path: '/messages', label: 'Messages', icon: MessagesIcon, badge: chatStore.totalUnreadCount },
   { path: `/users/${authStore.user?.username}`, label: 'Profile', icon: UserIcon },
 ])
 
@@ -78,6 +102,7 @@ const goToProfile = () => {
 }
 
 const handleLogout = async () => {
+  disconnect()
   await authStore.logout()
   router.push('/login')
 }
